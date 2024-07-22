@@ -344,6 +344,18 @@ func (c *Client) loadThumbprints(name string) error {
 	return scanner.Err()
 }
 
+// WithDialer sets the DialContext function for the client's transport, to allow for proxying via another transport.
+func (c *Client) WithDialer(dialer func(ctx context.Context, network, addr string) (net.Conn, error)) *Client {
+	legacyDialer := func(network, addr string) (net.Conn, error) {
+		return dialer(context.Background(), network, addr)
+	}
+
+	c.t.Dial = legacyDialer
+	c.t.DialContext = dialer
+
+	return c
+}
+
 // ThumbprintSHA1 returns the thumbprint of the given cert in the same format used by the SDK and Client.SetThumbprint.
 //
 // See: SSLVerifyFault.Thumbprint, SessionManagerGenericServiceTicket.Thumbprint, HostConnectSpec.SslThumbprint
@@ -358,8 +370,8 @@ func ThumbprintSHA1(cert *x509.Certificate) string {
 
 func (c *Client) dialTLSContext(
 	ctx context.Context,
-	network, addr string) (net.Conn, error) {
-
+	network, addr string,
+) (net.Conn, error) {
 	// Would be nice if there was a tls.Config.Verify func,
 	// see tls.clientHandshakeState.doFullHandshake
 
